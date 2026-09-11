@@ -156,45 +156,48 @@ class NixOSConfigEditor(QMainWindow):
         with open(CONFIG_PATH, 'r') as f:
             self.config_content = f.read()
 
+        # Nur aktive (nicht auskommentierte) Zeilen für das Einlesen nutzen
+        active_content = "\n".join([line for line in self.config_content.splitlines() if not line.strip().startswith('#')])
+
         # 1. Software & Services
-        self.flatpak_cb.setChecked("services.flatpak.enable = true;" in self.config_content)
-        self.flatpak_gc_cb.setChecked("flatpak-cleanup" in self.config_content)
-        self.bluetooth_cb.setChecked("hardware.bluetooth.enable = true;" in self.config_content)
+        self.flatpak_cb.setChecked("services.flatpak.enable = true;" in active_content)
+        self.flatpak_gc_cb.setChecked("flatpak-cleanup" in active_content)
+        self.bluetooth_cb.setChecked("hardware.bluetooth.enable = true;" in active_content)
 
         # 2. Hardware & Drivers
-        self.nvidia_cb.setChecked('"nvidia"' in self.config_content or "'nvidia'" in self.config_content)
-        self.nvidia_open_cb.setChecked("hardware.nvidia.open = true;" in self.config_content)
-        self.printing_cb.setChecked("services.printing.enable = true;" in self.config_content)
+        self.nvidia_cb.setChecked('"nvidia"' in active_content or "'nvidia'" in active_content)
+        self.nvidia_open_cb.setChecked("hardware.nvidia.open = true;" in active_content)
+        self.printing_cb.setChecked("services.printing.enable = true;" in active_content)
 
         # 3. System & Maintenance
-        gen_match = re.search(r'configurationLimit\s*=\s*(\d+);', self.config_content)
+        gen_match = re.search(r'configurationLimit\s*=\s*(\d+);', active_content)
         if gen_match:
             self.gen_limit.setValue(int(gen_match.group(1)))
-        self.nix_gc_cb.setChecked("nix.gc.automatic = true;" in self.config_content)
-        self.autoupgrade_cb.setChecked("system.autoUpgrade.enable = true;" in self.config_content)
+        self.nix_gc_cb.setChecked("nix.gc.automatic = true;" in active_content)
+        self.autoupgrade_cb.setChecked("system.autoUpgrade.enable = true;" in active_content)
 
         # 4. Firewall
-        self.fw_cb.setChecked("enable = false;" not in self.config_content and "networking.firewall.enable = false;" not in self.config_content)
-        tcp_match = re.search(r'allowedTCPPorts\s*=\s*\[(.*?)\];', self.config_content, re.DOTALL)
+        self.fw_cb.setChecked("enable = false;" not in active_content and "networking.firewall.enable = false;" not in active_content)
+        tcp_match = re.search(r'allowedTCPPorts\s*=\s*\[(.*?)\];', active_content, re.DOTALL)
         if tcp_match:
             self.fw_tcp_ports.setText(self._clean_list(tcp_match.group(1)))
-        udp_match = re.search(r'allowedUDPPorts\s*=\s*\[(.*?)\];', self.config_content, re.DOTALL)
+        udp_match = re.search(r'allowedUDPPorts\s*=\s*\[(.*?)\];', active_content, re.DOTALL)
         if udp_match:
             self.fw_udp_ports.setText(self._clean_list(udp_match.group(1)))
-        range_match = re.search(r'allowedUDPPortRanges\s*=\s*\[(.*?)\];', self.config_content, re.DOTALL) or re.search(r'allowedTCPPortRanges\s*=\s*\[(.*?)\];', self.config_content, re.DOTALL)
+        range_match = re.search(r'allowedUDPPortRanges\s*=\s*\[(.*?)\];', active_content, re.DOTALL) or re.search(r'allowedTCPPortRanges\s*=\s*\[(.*?)\];', active_content, re.DOTALL)
         if range_match:
             self.fw_tcp_ranges.setText(self._clean_list(range_match.group(1)))
 
         # 5. System Packages
-        pkg_match = re.search(r'environment\.systemPackages\s*=\s*(?:with pkgs;\s*)?\[(.*?)\];', self.config_content, re.DOTALL)
+        pkg_match = re.search(r'environment\.systemPackages\s*=\s*(?:with pkgs;\s*)?\[(.*?)\];', active_content, re.DOTALL)
         if pkg_match:
             self.pkgs_edit.setText(self._clean_list(pkg_match.group(1)))
 
         # 6. Users
-        user_match = re.search(r'users\.users\.([a-zA-Z0-9_-]+)\s*=\s*\{', self.config_content)
+        user_match = re.search(r'users\.users\.([a-zA-Z0-9_-]+)\s*=\s*\{', active_content)
         if user_match:
             self.username_input.setText(user_match.group(1))
-            groups_match = re.search(r'extraGroups\s*=\s*\[(.*?)\];', self.config_content, re.DOTALL)
+            groups_match = re.search(r'extraGroups\s*=\s*\[(.*?)\];', active_content, re.DOTALL)
             if groups_match:
                 groups_raw = groups_match.group(1).replace('"', '').replace("'", "")
                 self.groups_input.setText(self._clean_list(groups_raw))
@@ -226,6 +229,7 @@ class NixOSConfigEditor(QMainWindow):
 
     def _clean_list(self, raw_str):
         raw_str = re.sub(r'#.*', '', raw_str)
+        raw_str = raw_str.replace('...', '')  # NixOS-Beispielpunkte strikt ausfiltern
         return " ".join(raw_str.split())
 
     def clean_managed_sections(self, text, username):
