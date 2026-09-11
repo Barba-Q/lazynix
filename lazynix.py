@@ -194,8 +194,8 @@ class NixOSConfigEditor(QMainWindow):
 
         # 6. User & Groups
         user_name = None
-        user_match_dot = re.search(r'users\.users\.([a-zA-Z0-9_-]+)\s*=\s*\{', active_content)
-        user_match_nested = re.search(r'users\.users\s*=\s*\{\s*([a-zA-Z0-9_-]+)\s*=\s*\{', active_content, re.DOTALL)
+        user_match_dot = re.search(r'users\.(?:users|extraUsers)\.["\']?([a-zA-Z0-9_-]+)["\']?\s*=\s*\{', active_content)
+        user_match_nested = re.search(r'users\.(?:users|extraUsers)\s*=\s*\{\s*["\']?([a-zA-Z0-9_-]+)["\']?\s*=\s*\{', active_content, re.DOTALL)
 
         if user_match_dot:
             user_name = user_match_dot.group(1)
@@ -204,8 +204,8 @@ class NixOSConfigEditor(QMainWindow):
 
         if user_name and user_name != "root":
             self.username_input.setText(user_name)
-            
-            user_block_match = re.search(r'users\.users\.' + re.escape(user_name) + r'\s*=\s*\{(.*?)\};', active_content, re.DOTALL)
+
+            user_block_match = re.search(r'users\.(?:users|extraUsers)\.["\']?' + re.escape(user_name) + r'["\']?\s*=\s*\{(.*?)\};', active_content, re.DOTALL)
             if user_block_match:
                 groups_match = re.search(r'extraGroups\s*=\s*\[(.*?)\];', user_block_match.group(1), re.DOTALL)
                 if groups_match:
@@ -255,6 +255,12 @@ class NixOSConfigEditor(QMainWindow):
             line = lines[i]
             code_line = re.sub(r'#.*', '', line).strip()
 
+            is_user_block = False
+            if username:
+                pattern = r'users\.(users|extraUsers)\.["\']?' + re.escape(username) + r'["\']?\b'
+                if re.search(pattern, code_line):
+                    is_user_block = True
+
             brace_block_starts = [
                 r'^networking\.firewall\s*=\s*\{',
                 r'^systemd\.services\.flatpak-cleanup\s*=\s*\{',
@@ -264,16 +270,16 @@ class NixOSConfigEditor(QMainWindow):
                 r'^nix\.gc\s*=\s*\{',
                 r'^system\.autoUpgrade\s*=\s*\{',
             ]
-            if username:
-                brace_block_starts.append(r'^users\.users\.' + re.escape(username) + r'\s*=\s*\{')
 
-            if any(re.search(p, code_line) for p in brace_block_starts):
+            if is_user_block or any(re.search(p, code_line) for p in brace_block_starts):
                 brace_count = code_line.count('{') - code_line.count('}')
                 i += 1
-                while i < len(lines) and brace_count > 0:
+                while i < len(lines):
                     c_line = re.sub(r'#.*', '', lines[i])
                     brace_count += c_line.count('{') - c_line.count('}')
                     i += 1
+                    if brace_count <= 0 and ('{' in line or '{' in c_line):
+                        break
                 continue
 
             if re.search(r'^environment\.systemPackages\s*=', code_line):
@@ -321,7 +327,7 @@ class NixOSConfigEditor(QMainWindow):
         # 2. Flatpak & Auto-Flathub Remote & Cleanup
         if self.flatpak_cb.isChecked():
             new_blocks.append("services.flatpak.enable = true;")
-            
+
             new_blocks.append(
                 'systemd.services.flatpak-repo = {\n'
                 '    wantedBy = [ "multi-user.target" ];\n'
@@ -329,7 +335,7 @@ class NixOSConfigEditor(QMainWindow):
                 '    script = "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo";\n'
                 '  };'
             )
-            
+
             if self.flatpak_gc_cb.isChecked():
                 new_blocks.append(
                     'systemd.services.flatpak-cleanup = {\n'
