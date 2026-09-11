@@ -47,7 +47,7 @@ class NixOSConfigEditor(QMainWindow):
         # --- Tab 1: Software & Services ---
         tab_sw = QWidget()
         layout_sw = QFormLayout(tab_sw)
-        self.flatpak_cb = QCheckBox("Enable Flatpak (services.flatpak.enable)")
+        self.flatpak_cb = QCheckBox("Enable Flatpak & Flathub repository (services.flatpak.enable)")
         self.flatpak_gc_cb = QCheckBox("Automatic Flatpak cleanup (Remove unused runtimes)")
         self.bluetooth_cb = QCheckBox("Enable Bluetooth & power on at boot")
         self.pkgs_edit = QTextEdit()
@@ -156,7 +156,6 @@ class NixOSConfigEditor(QMainWindow):
         with open(CONFIG_PATH, 'r') as f:
             self.config_content = f.read()
 
-        # Nur aktive (nicht auskommentierte) Zeilen für das Einlesen nutzen
         active_content = "\n".join([line for line in self.config_content.splitlines() if not line.strip().startswith('#')])
 
         # 1. Software & Services
@@ -193,14 +192,30 @@ class NixOSConfigEditor(QMainWindow):
         if pkg_match:
             self.pkgs_edit.setText(self._clean_list(pkg_match.group(1)))
 
-        # 6. Users
-        user_match = re.search(r'users\.users\.([a-zA-Z0-9_-]+)\s*=\s*\{', active_content)
-        if user_match:
-            self.username_input.setText(user_match.group(1))
-            groups_match = re.search(r'extraGroups\s*=\s*\[(.*?)\];', active_content, re.DOTALL)
-            if groups_match:
-                groups_raw = groups_match.group(1).replace('"', '').replace("'", "")
-                self.groups_input.setText(self._clean_list(groups_raw))
+        # 6. User & Groups
+        user_name = None
+        user_match_dot = re.search(r'users\.users\.([a-zA-Z0-9_-]+)\s*=\s*\{', active_content)
+        user_match_nested = re.search(r'users\.users\s*=\s*\{\s*([a-zA-Z0-9_-]+)\s*=\s*\{', active_content, re.DOTALL)
+
+        if user_match_dot:
+            user_name = user_match_dot.group(1)
+        elif user_match_nested:
+            user_name = user_match_nested.group(1)
+
+        if user_name and user_name != "root":
+            self.username_input.setText(user_name)
+            
+            user_block_match = re.search(r'users\.users\.' + re.escape(user_name) + r'\s*=\s*\{(.*?)\};', active_content, re.DOTALL)
+            if user_block_match:
+                groups_match = re.search(r'extraGroups\s*=\s*\[(.*?)\];', user_block_match.group(1), re.DOTALL)
+                if groups_match:
+                    groups_raw = groups_match.group(1).replace('"', '').replace("'", "")
+                    self.groups_input.setText(self._clean_list(groups_raw))
+        else:
+            env_user = os.environ.get("SUDO_USER") or os.environ.get("USER") or ""
+            if env_user and env_user != "root":
+                self.username_input.setText(env_user)
+                self.groups_input.setText("wheel networkmanager video")
 
         self.load_backups()
 
@@ -229,7 +244,7 @@ class NixOSConfigEditor(QMainWindow):
 
     def _clean_list(self, raw_str):
         raw_str = re.sub(r'#.*', '', raw_str)
-        raw_str = raw_str.replace('...', '')  # NixOS-Beispielpunkte strikt ausfiltern
+        raw_str = raw_str.replace('...', '')
         return " ".join(raw_str.split())
 
     def clean_managed_sections(self, text, username):
@@ -240,11 +255,11 @@ class NixOSConfigEditor(QMainWindow):
             line = lines[i]
             code_line = re.sub(r'#.*', '', line).strip()
 
-            # 1. Remove multi-line blocks { ... }
             brace_block_starts = [
                 r'^networking\.firewall\s*=\s*\{',
                 r'^systemd\.services\.flatpak-cleanup\s*=\s*\{',
                 r'^systemd\.timers\.flatpak-cleanup\s*=\s*\{',
+                r'^systemd\.services\.flatpak-repo\s*=\s*\{',
                 r'^hardware\.bluetooth\s*=\s*\{',
                 r'^nix\.gc\s*=\s*\{',
                 r'^system\.autoUpgrade\s*=\s*\{',
@@ -261,7 +276,6 @@ class NixOSConfigEditor(QMainWindow):
                     i += 1
                 continue
 
-            # 2. Remove systemPackages block [ ... ];
             if re.search(r'^environment\.systemPackages\s*=', code_line):
                 bracket_count = code_line.count('[') - code_line.count(']')
                 if bracket_count == 0 and ';' in code_line:
@@ -274,7 +288,6 @@ class NixOSConfigEditor(QMainWindow):
                     i += 1
                 continue
 
-            # 3. Remove single managed lines
             single_line_patterns = [
                 r'^services\.flatpak\.enable\s*=',
                 r'^services\.printing\.enable\s*=',
@@ -305,9 +318,18 @@ class NixOSConfigEditor(QMainWindow):
         if self.nvidia_cb.isChecked() and "nixpkgs.config.allowUnfree" not in content:
             new_blocks.append("nixpkgs.config.allowUnfree = true;")
 
-        # 2. Flatpak & Cleanup
+        # 2. Flatpak & Auto-Flathub Remote & Cleanup
         if self.flatpak_cb.isChecked():
             new_blocks.append("services.flatpak.enable = true;")
+            
+            new_blocks.append(
+                'systemd.services.flatpak-repo = {\n'
+                '    wantedBy = [ "multi-user.target" ];\n'
+                '    path = [ pkgs.flatpak ];\n'
+                '    script = "flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo";\n'
+                '  };'
+            )
+            
             if self.flatpak_gc_cb.isChecked():
                 new_blocks.append(
                     'systemd.services.flatpak-cleanup = {\n'
@@ -371,7 +393,7 @@ class NixOSConfigEditor(QMainWindow):
             fw_lines.append(f"networking.firewall.allowedUDPPortRanges = [ {tcp_ranges} ];")
         new_blocks.append("\n  ".join(fw_lines))
 
-        # 7. System Packages & DE-Specific Software Store Auto-Integration
+        # 7. System Packages & Store Auto-Integration
         pkgs_list = self._clean_list(self.pkgs_edit.toPlainText()).split()
 
         if self.flatpak_cb.isChecked():
@@ -398,7 +420,6 @@ class NixOSConfigEditor(QMainWindow):
                 f'  }};'
             )
 
-        # Append all new blocks cleanly before closing '}' at EOF
         formatted_addition = "\n\n  ".join(new_blocks)
         idx = content.rfind("}")
         if idx != -1:
