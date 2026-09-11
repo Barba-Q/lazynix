@@ -18,7 +18,7 @@ Type=Application
 Name=LazyNix Config Editor
 Comment=Set NixOS Configuration
 Exec=$BIN_DIR/lazynix.py
-Icon=nixos
+Icon=lazynix
 Terminal=false
 Categories=System;Settings;
 EOF
