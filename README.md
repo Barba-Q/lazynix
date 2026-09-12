@@ -3,6 +3,8 @@
 > **Graphical System Configuration Editor for NixOS**  
 > Manage system settings, hardware drivers, firewalls, and packages without editing raw Nix code. Built for simplicity, safety, and non-technical users.
 
+<img width="651" height="606" alt="lazynix_01" src="https://github.com/user-attachments/assets/0ee27c12-8913-459f-a5bd-7937d138519a" />
+
 ## Features
 
 - **Software & Services**
