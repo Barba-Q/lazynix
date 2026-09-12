@@ -47,7 +47,7 @@ class NixOSConfigEditor(QMainWindow):
         # --- Tab 1: Software & Services ---
         tab_sw = QWidget()
         layout_sw = QFormLayout(tab_sw)
-        self.flatpak_cb = QCheckBox("Enable Flatpak & Flathub repository (services.flatpak.enable)")
+        self.flatpak_cb = QCheckBox("Enable Flatpak & Flathub repository")
         self.flatpak_gc_cb = QCheckBox("Automatic Flatpak cleanup (Remove unused runtimes)")
         self.bluetooth_cb = QCheckBox("Enable Bluetooth & power on at boot")
         self.pkgs_edit = QTextEdit()
@@ -64,8 +64,8 @@ class NixOSConfigEditor(QMainWindow):
         tab_hw = QWidget()
         layout_hw = QFormLayout(tab_hw)
         self.nvidia_cb = QCheckBox("Enable proprietary NVIDIA driver")
-        self.nvidia_open_cb = QCheckBox("Use open-source kernel modules for NVIDIA (hardware.nvidia.open)")
-        self.printing_cb = QCheckBox("Enable printer support (CUPS / services.printing.enable)")
+        self.nvidia_open_cb = QCheckBox("Use open-source kernel modules for NVIDIA")
+        self.printing_cb = QCheckBox("Enable printer support (CUPS)")
 
         layout_hw.addRow(self.nvidia_cb)
         layout_hw.addRow(self.nvidia_open_cb)
@@ -79,7 +79,7 @@ class NixOSConfigEditor(QMainWindow):
         self.gen_limit.setRange(1, 50)
         self.gen_limit.setValue(10)
         self.nix_gc_cb = QCheckBox("Automatic Nix garbage collection (Delete old packages weekly)")
-        self.autoupgrade_cb = QCheckBox("Enable automatic system updates (system.autoUpgrade)")
+        self.autoupgrade_cb = QCheckBox("Enable automatic system updates")
 
         layout_sys.addRow("Maximum system generations to keep:", self.gen_limit)
         layout_sys.addRow(self.nix_gc_cb)
@@ -89,7 +89,7 @@ class NixOSConfigEditor(QMainWindow):
         # --- Tab 4: Firewall ---
         tab_fw = QWidget()
         layout_fw = QFormLayout(tab_fw)
-        self.fw_cb = QCheckBox("Enable firewall (networking.firewall.enable)")
+        self.fw_cb = QCheckBox("Enable firewall")
         self.fw_tcp_ports = QLineEdit()
         self.fw_udp_ports = QLineEdit()
         self.fw_tcp_ranges = QLineEdit()
@@ -142,7 +142,7 @@ class NixOSConfigEditor(QMainWindow):
         layout.addWidget(self.progress_bar)
 
         # Save & Apply button
-        self.save_btn = QPushButton("Create safe backup & execute NixOS rebuild")
+        self.save_btn = QPushButton("Create config backup & execute NixOS rebuild")
         self.save_btn.clicked.connect(self.save_and_apply)
         layout.addWidget(self.save_btn)
 
@@ -563,8 +563,8 @@ class NixOSConfigEditor(QMainWindow):
         tab_hw = QWidget()
         layout_hw = QFormLayout(tab_hw)
         self.nvidia_cb = QCheckBox("Enable proprietary NVIDIA driver")
-        self.nvidia_open_cb = QCheckBox("Use open-source kernel modules for NVIDIA (hardware.nvidia.open)")
-        self.printing_cb = QCheckBox("Enable printer support (CUPS / services.printing.enable)")
+        self.nvidia_open_cb = QCheckBox("Use open-source kernel modules for NVIDIA")
+        self.printing_cb = QCheckBox("Enable printer support (CUPS)")
 
         layout_hw.addRow(self.nvidia_cb)
         layout_hw.addRow(self.nvidia_open_cb)
@@ -578,7 +578,7 @@ class NixOSConfigEditor(QMainWindow):
         self.gen_limit.setRange(1, 50)
         self.gen_limit.setValue(10)
         self.nix_gc_cb = QCheckBox("Automatic Nix garbage collection (Delete old packages weekly)")
-        self.autoupgrade_cb = QCheckBox("Enable automatic system updates (system.autoUpgrade)")
+        self.autoupgrade_cb = QCheckBox("Enable automatic system updates")
 
         layout_sys.addRow("Maximum system generations to keep:", self.gen_limit)
         layout_sys.addRow(self.nix_gc_cb)
@@ -588,7 +588,7 @@ class NixOSConfigEditor(QMainWindow):
         # --- Tab 4: Firewall ---
         tab_fw = QWidget()
         layout_fw = QFormLayout(tab_fw)
-        self.fw_cb = QCheckBox("Enable firewall (networking.firewall.enable)")
+        self.fw_cb = QCheckBox("Enable firewall")
         self.fw_tcp_ports = QLineEdit()
         self.fw_udp_ports = QLineEdit()
         self.fw_tcp_ranges = QLineEdit()
